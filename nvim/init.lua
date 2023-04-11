@@ -10,15 +10,33 @@ end
 require('packer').startup(function(use)
   -- Package manager
   use 'wbthomason/packer.nvim'
-  use({ -- auto save like vs code
-    "Pocco81/auto-save.nvim",
-    config = function()
-       require("auto-save").setup {
-        -- your config goes here
-        -- or just leave it empty :)
-       }
-    end,
-  })
+  use {
+    "akinsho/toggleterm.nvim", tag = '*', config = function()
+    require("toggleterm").setup({
+        open_mapping = [[<c-a>]],
+        size = 20,
+        direction = "float"
+      })
+    end
+  }
+  use {
+  'nvim-tree/nvim-tree.lua',
+  requires = {
+    'nvim-tree/nvim-web-devicons', -- optional
+  },
+  config = function()
+    require("nvim-tree").setup {}
+  end
+  }
+  -- use({ -- auto save like vs code
+  --   "Pocco81/auto-save.nvim",
+  --   config = function()
+  --      require("auto-save").setup {
+  --       -- your config goes here
+  --       -- or just leave it empty :)
+  --      }
+  --   end,
+  -- })
   use { -- LSP Configuration & Plugins
     'neovim/nvim-lspconfig',
     requires = {
@@ -33,6 +51,7 @@ require('packer').startup(function(use)
       'folke/neodev.nvim',
     },
   }
+  use { "mg979/vim-visual-multi" }
   -- Auto pairs
   use {
     "windwp/nvim-autopairs",
@@ -164,6 +183,28 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   pattern = '*',
 })
 
+-- examples for your init.lua
+
+-- disable netrw at the very start of your init.lua (strongly advised)
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
+-- set termguicolors to enable highlight groups
+vim.opt.termguicolors = true
+
+-- empty setup using defaults
+require("nvim-tree").setup()
+
+-- OR setup with some options
+require("nvim-tree").setup({
+  sort_by = "case_sensitive",
+  renderer = {
+    group_empty = true,
+  },
+  filters = {
+    dotfiles = true,
+  },
+})
 -- Set lualine as statusline
 -- See `:help lualine.txt`
 require('lualine').setup {
@@ -210,6 +251,14 @@ require('telescope').setup {
   },
 }
 
+-- toggleterm conf 
+require('toggleterm').setup({
+  size=20,
+  open_mapping=[[c-<Space>]],
+  direction="float"
+})
+
+vim.keymap.set("n", "<leader>tt", "toggleterm")
 -- Enable telescope fzf native, if installed
 pcall(require('telescope').load_extension, 'fzf')
 
@@ -290,9 +339,38 @@ require('nvim-treesitter.configs').setup {
         ['<leader>A'] = '@parameter.inner',
       },
     },
+    
   },
 }
+local opt = vim.opt
 
+opt.foldmethod = "expr"
+opt.foldexpr = "nvim_treesitter#foldexpr()"
+
+local api = vim.api
+local M = {}
+-- function to create a list of commands and convert them to autocommands
+-------- This function is taken from https://github.com/norcalli/nvim_utils
+function M.nvim_create_augroups(definitions)
+    for group_name, definition in pairs(definitions) do
+        api.nvim_command('augroup '..group_name)
+        api.nvim_command('autocmd!')
+        for _, def in ipairs(definition) do
+            local command = table.concat(vim.tbl_flatten{'autocmd', def}, ' ')
+            api.nvim_command(command)
+        end
+        api.nvim_command('augroup END')
+    end
+end
+
+local autoCommands = {
+    -- other autocommands
+    open_folds = {
+        {"BufReadPost,FileReadPost", "*", "normal zR"}
+    }
+}
+
+M.nvim_create_augroups(autoCommands)
 -- Diagnostic keymaps
 vim.keymap.set('n', '[d', vim.diagnostic.goto_prev)
 vim.keymap.set('n', ']d', vim.diagnostic.goto_next)
@@ -427,9 +505,7 @@ cmp.event:on(
   'confirm_done',
   cmp_autopairs.on_confirm_done()
 )
-local cmp = require 'cmp'
 local luasnip = require 'luasnip'
-
 cmp.setup {
   snippet = {
     expand = function(args)
@@ -461,7 +537,7 @@ cmp.setup {
       else
         fallback()
       end
-    end, { 'i', 's' }),
+   end, { 'i', 's' })
   },
   sources = {
     { name = 'nvim_lsp' },
@@ -469,5 +545,76 @@ cmp.setup {
   },
 }
 
+-- Usefull Keymaps
+-- " Open and close folds with space
+-- nnoremap <Space> za
+-- vnoremap <Space> za
+vim.keymap.set({"n","v"}, "<Leader>z", "za")
+vim.keymap.set({"n","v"}, "<Leader>zz", "zR")
+-- " Change split navigation
+-- " This is a life-saver -- I hate cord key bindings like in emacs
+vim.keymap.set("n", "<C-h>", "<C-w>h")
+vim.keymap.set("n", "<C-j>", "<C-w>j")
+vim.keymap.set("n", "<C-k>", "<C-w>k")
+vim.keymap.set("n", "<C-l>", "<C-w>l")
+--
+-- " Yeah, you all know this one. I may try jk instead at some point.
+-- imap jj <Esc>
+vim.keymap.set('i', "jj", "<Esc>")
+-- " Map gt and gT to next/prev buffers instead of tabs
+-- " Really nice -- though I mostly use Unite or just Q which is defined below.
+-- nmap gt :bnext<CR>
+-- nmap gT :bprev<CR>
+--
+vim.keymap.set('n', "gt", ":bnext<CR>")
+vim.keymap.set('n', "gT", ":bprev<CR>")
+-- " Map gt and gT to next/prev buffers instead of tabs
+-- " Mapping Q (shift-q) to last used buffer
+-- " I don't remember what Q did, but it wasn't anything important.
+-- " This binding also feels intuitive if you've ever played a game like CS
+-- " Where last weapon is on Q
+-- nmap Q :b#<CR>
+--
+-- " Map <Leader> x to close current buffer
+-- " Use this a lot
+-- nmap <Leader>x :bd<CR>
+vim.keymap.set({"n", "t"}, "<Leader>x", ":bd!<CR>")
+-- " Map C-Backspace to delete previous word
+-- " One hold editing habit I haven't gotten rid of yet - ctrl+bksp.
+-- " Doesn't work in terminal vim(for me, at least)
+-- imap <C-BS> <C-W>
+--
+-- " Bindings for editing/sourcing vimrc
+-- " This is nice to have. Use these frequently.
+-- map <Leader>E :e $MYVIMRC<CR>
+-- map <Leader>S :source $MYVIMRC<CR>
+--
+-- " Trim whitespace
+-- " Only had this for a short while and I keep hitting it, it's nice.
+-- nnoremap <Leader>rws :%s:\s\+$::<CR>:let @/=''<cr>
+--
+-- " Faster save
+-- " I really do :w<cr> often -- this is faster.
+-- nnoremap <Leader>w :w<CR>
+--
+vim.keymap.set("n", "<Leader>w", ":w<CR>")
+-- " Map C-Backspace to delete previous word
+-- " Trying faster colon
+-- " : on my layout is Shift+. where the dot is the 2nd key left of the right shift.
+-- " This key, þ, is to the right of that key. I'm trying it out as a colon.
+-- nnoremap þ :
+--
+-- " Select what was just pasted
+-- " Very handy.
+-- nnoremap <Leader>V V`]
+
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+--
+-- Explore files
+vim.keymap.set('n', "<leader>ee", ":E<CR>")
+--
+vim.keymap.set({'n', 't'}, 'tt', ":ToggleTerm<CR>")
+vim.keymap.set('t', '<esc>', [[<C-\><C-n>]])
+--#region
+--
